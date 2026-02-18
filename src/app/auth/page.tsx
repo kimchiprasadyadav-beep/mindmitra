@@ -175,6 +175,7 @@ export default function AuthPage() {
           <button
             onClick={() => {
               localStorage.setItem("lorelai-anonymous", "true");
+              document.cookie = "lorelai-anonymous=true; path=/; max-age=86400";
               router.push("/");
             }}
             className="w-full px-6 py-3 bg-warm-brown/5 text-warm-brown/60 rounded-full hover:bg-warm-brown/10 hover:text-warm-brown transition-colors text-sm font-medium"

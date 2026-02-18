@@ -28,7 +28,10 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // If not logged in and trying to access protected routes, redirect to auth
-  if (!user && !request.nextUrl.pathname.startsWith('/auth')) {
+  // Allow anonymous mode (check for cookie) and privacy page
+  const isAnonymous = request.cookies.get('lorelai-anonymous')?.value === 'true'
+  const isPublicPath = request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname.startsWith('/privacy')
+  if (!user && !isAnonymous && !isPublicPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth'
     return NextResponse.redirect(url)
