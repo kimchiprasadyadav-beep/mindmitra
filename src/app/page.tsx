@@ -1,13 +1,25 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 type Message = { role: "user" | "assistant"; content: string };
-type Conversation = { id: string; title: string; messages: Message[]; date: string };
+type Conversation = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
 
 function SteamSVG({ active }: { active: boolean }) {
   return (
-    <svg width="40" height="50" viewBox="0 0 40 50" className="absolute -top-10 left-1/2 -translate-x-1/2">
+    <svg
+      width="40"
+      height="50"
+      viewBox="0 0 40 50"
+      className="absolute -top-10 left-1/2 -translate-x-1/2"
+    >
       {[12, 20, 28].map((x, i) => (
         <path
           key={i}
@@ -23,7 +35,13 @@ function SteamSVG({ active }: { active: boolean }) {
   );
 }
 
-function CoffeeMicButton({ recording, onClick }: { recording: boolean; onClick: () => void }) {
+function CoffeeMicButton({
+  recording,
+  onClick,
+}: {
+  recording: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -41,81 +59,168 @@ function CoffeeMicButton({ recording, onClick }: { recording: boolean; onClick: 
 }
 
 export default function Home() {
+  const supabase = createClient();
+  const router = useRouter();
+
   const [userName, setUserName] = useState<string | null>(null);
-  const [nameInput, setNameInput] = useState("");
-  const [onboarding, setOnboarding] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConvoId, setCurrentConvoId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [loading, setLoading] = useState(true);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Load user data
+  // Load user + conversations on mount
   useEffect(() => {
-    const name = localStorage.getItem("lorelai-userName");
-    const convos = JSON.parse(localStorage.getItem("lorelai-conversations") || "[]");
-    const current = JSON.parse(localStorage.getItem("lorelai-currentChat") || "[]");
-    if (name) {
-      setUserName(name);
-      setOnboarding(false);
-    }
-    setConversations(convos);
-    if (current.length) setMessages(current);
-  }, []);
+    const init = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+      setUserId(user.id);
 
-  // Save current chat
-  useEffect(() => {
-    if (messages.length) localStorage.setItem("lorelai-currentChat", JSON.stringify(messages));
-  }, [messages]);
+      // Get profile name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", user.id)
+        .single();
+      setUserName(
+        profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "friend"
+      );
+
+      // Load conversations
+      const { data: convos } = await supabase
+        .from("conversations")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (convos) setConversations(convos);
+
+      setLoading(false);
+    };
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    if (chatRef.current)
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, isStreaming]);
 
-  const handleNameSubmit = () => {
-    if (!nameInput.trim()) return;
-    localStorage.setItem("lorelai-userName", nameInput.trim());
-    setUserName(nameInput.trim());
-    setOnboarding(false);
+  const loadConversationMessages = async (convoId: string) => {
+    const { data } = await supabase
+      .from("messages")
+      .select("role, content")
+      .eq("conversation_id", convoId)
+      .order("created_at", { ascending: true });
+    if (data) setMessages(data as Message[]);
+    setCurrentConvoId(convoId);
+    setShowHistory(false);
   };
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isStreaming) return;
-    const userMsg: Message = { role: "user", content: text.trim() };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setInput("");
-    setIsStreaming(true);
+  const createNewConversation = async (
+    firstMessage: string
+  ): Promise<string | null> => {
+    if (!userId) return null;
+    const title =
+      firstMessage.slice(0, 40) +
+      (firstMessage.length > 40 ? "..." : "");
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert({ user_id: userId, title })
+      .select()
+      .single();
+    if (error || !data) return null;
+    setConversations((prev) => [data, ...prev]);
+    setCurrentConvoId(data.id);
+    return data.id;
+  };
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, userName }),
-      });
+  const saveMessage = async (
+    convoId: string,
+    role: "user" | "assistant",
+    content: string
+  ) => {
+    await supabase.from("messages").insert({
+      conversation_id: convoId,
+      role,
+      content,
+    });
+    // Update conversation timestamp
+    await supabase
+      .from("conversations")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", convoId);
+  };
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = "";
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isStreaming) return;
+      const userMsg: Message = { role: "user", content: text.trim() };
+      const newMessages = [...messages, userMsg];
+      setMessages(newMessages);
+      setInput("");
+      setIsStreaming(true);
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          assistantText += decoder.decode(value, { stream: true });
-          setMessages([...newMessages, { role: "assistant", content: assistantText }]);
-        }
+      // Create conversation if needed
+      let convoId = currentConvoId;
+      if (!convoId) {
+        convoId = await createNewConversation(text.trim());
       }
-    } catch {
-      setMessages([...newMessages, { role: "assistant", content: "Ugh, my brain just glitched. Like when the WiFi at Luke's goes out. Try again? ☕" }]);
-    }
-    setIsStreaming(false);
-  }, [messages, isStreaming, userName]);
+
+      // Save user message
+      if (convoId) await saveMessage(convoId, "user", text.trim());
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: newMessages, userName }),
+        });
+
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        let assistantText = "";
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            assistantText += decoder.decode(value, { stream: true });
+            setMessages([
+              ...newMessages,
+              { role: "assistant", content: assistantText },
+            ]);
+          }
+        }
+
+        // Save assistant message
+        if (convoId && assistantText)
+          await saveMessage(convoId, "assistant", assistantText);
+      } catch {
+        const errMsg =
+          "Ugh, my brain just glitched. Like when the WiFi at Luke's goes out. Try again? ☕";
+        setMessages([
+          ...newMessages,
+          { role: "assistant", content: errMsg },
+        ]);
+        if (convoId) await saveMessage(convoId, "assistant", errMsg);
+      }
+      setIsStreaming(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messages, isStreaming, userName, currentConvoId, userId]
+  );
 
   const toggleRecording = useCallback(() => {
     if (recording) {
@@ -128,7 +233,9 @@ export default function Home() {
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Speech recognition not supported in this browser. Try Chrome!");
       return;
@@ -144,60 +251,40 @@ export default function Home() {
     recognition.onresult = (event: any) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+        if (event.results[i].isFinal)
+          finalTranscript += event.results[i][0].transcript;
         else interim = event.results[i][0].transcript;
       }
       setTranscript(finalTranscript + interim);
     };
-    recognition.onerror = () => { setRecording(false); setTranscript(""); };
-    recognition.onend = () => { setRecording(false); };
+    recognition.onerror = () => {
+      setRecording(false);
+      setTranscript("");
+    };
+    recognition.onend = () => {
+      setRecording(false);
+    };
     recognition.start();
     setRecording(true);
   }, [recording, transcript, sendMessage]);
 
   const newChat = () => {
-    if (messages.length > 0) {
-      const title = messages[0].content.slice(0, 40) + (messages[0].content.length > 40 ? "..." : "");
-      const convo: Conversation = { id: Date.now().toString(), title, messages, date: new Date().toLocaleDateString() };
-      const updated = [convo, ...conversations];
-      setConversations(updated);
-      localStorage.setItem("lorelai-conversations", JSON.stringify(updated));
-    }
     setMessages([]);
-    localStorage.removeItem("lorelai-currentChat");
+    setCurrentConvoId(null);
   };
 
-  const loadConversation = (convo: Conversation) => {
-    if (messages.length > 0) newChat();
-    setMessages(convo.messages);
-    setShowHistory(false);
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/auth");
+    router.refresh();
   };
 
-  // Onboarding
-  if (onboarding) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center msg-enter">
-          <div className="text-7xl mb-6">☕</div>
-          <h1 className="font-[family-name:var(--font-playfair)] text-4xl text-coffee-dark mb-4">Lorelai</h1>
-          <p className="text-dark/70 text-lg mb-2">Think of me as that friend who always picks up the phone — even at 2 AM.</p>
-          <p className="text-dark/50 mb-8">No judgment, just coffee and conversation.</p>
-          <p className="text-coffee font-medium mb-3">What should I call you?</p>
-          <form onSubmit={(e) => { e.preventDefault(); handleNameSubmit(); }} className="flex gap-2">
-            <input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="Your name..."
-              className="flex-1 px-4 py-3 rounded-full bg-white border border-warm-gray focus:border-coffee focus:outline-none text-dark placeholder:text-dark/30"
-              autoFocus
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-coffee text-cream rounded-full hover:bg-coffee-light transition-colors font-medium"
-            >
-              Let&apos;s go ☕
-            </button>
-          </form>
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center msg-enter">
+          <div className="text-5xl mb-4">☕</div>
+          <p className="text-coffee/60">Brewing your session...</p>
         </div>
       </div>
     );
@@ -207,29 +294,62 @@ export default function Home() {
     <div className="h-screen flex flex-col bg-cream">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-warm-gray/50 bg-cream/80 backdrop-blur-sm sticky top-0 z-10">
-        <button onClick={() => setShowHistory(!showHistory)} className="text-coffee/60 hover:text-coffee transition-colors text-sm">
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="text-coffee/60 hover:text-coffee transition-colors text-sm"
+        >
           {showHistory ? "✕ Close" : "📜 History"}
         </button>
         <h1 className="font-[family-name:var(--font-playfair)] text-2xl text-coffee-dark">
           Lorelai <span className="text-xl">☕</span>
         </h1>
-        <button onClick={newChat} className="text-coffee/60 hover:text-coffee transition-colors text-sm">
-          + New
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={newChat}
+            className="text-coffee/60 hover:text-coffee transition-colors text-sm"
+          >
+            + New
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="text-coffee/40 hover:text-rust transition-colors text-xs ml-1"
+            title="Sign out"
+          >
+            🚪
+          </button>
+        </div>
       </header>
 
       {/* History Sidebar */}
       {showHistory && (
         <div className="absolute top-14 left-0 right-0 bottom-0 bg-cream/95 backdrop-blur-sm z-20 p-4 overflow-y-auto msg-enter">
-          <h2 className="font-[family-name:var(--font-playfair)] text-xl text-coffee-dark mb-4">Past Conversations</h2>
+          <h2 className="font-[family-name:var(--font-playfair)] text-xl text-coffee-dark mb-4">
+            Past Conversations
+          </h2>
           {conversations.length === 0 ? (
-            <p className="text-dark/40 text-center mt-12">No past conversations yet.<br/>Start chatting! ☕</p>
-          ) : conversations.map((c) => (
-            <button key={c.id} onClick={() => loadConversation(c)} className="w-full text-left p-3 mb-2 rounded-xl hover:bg-warm-gray/40 transition-colors">
-              <p className="text-dark/80 text-sm font-medium truncate">{c.title}</p>
-              <p className="text-dark/40 text-xs mt-1">{c.date} · {c.messages.length} messages</p>
-            </button>
-          ))}
+            <p className="text-dark/40 text-center mt-12">
+              No past conversations yet.
+              <br />
+              Start chatting! ☕
+            </p>
+          ) : (
+            conversations.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => loadConversationMessages(c.id)}
+                className={`w-full text-left p-3 mb-2 rounded-xl hover:bg-warm-gray/40 transition-colors ${
+                  currentConvoId === c.id ? "bg-warm-gray/30" : ""
+                }`}
+              >
+                <p className="text-dark/80 text-sm font-medium truncate">
+                  {c.title}
+                </p>
+                <p className="text-dark/40 text-xs mt-1">
+                  {new Date(c.created_at).toLocaleDateString()}
+                </p>
+              </button>
+            ))
+          )}
         </div>
       )}
 
@@ -241,8 +361,11 @@ export default function Home() {
               <CoffeeMicButton recording={recording} onClick={toggleRecording} />
             </div>
             <p className="text-dark/40 text-sm max-w-xs">
-              Hey {userName} 👋 Tap the cup to talk, or type below.<br/>
-              <span className="text-dark/30 text-xs">I&apos;m here whenever you need me.</span>
+              Hey {userName} 👋 Tap the cup to talk, or type below.
+              <br />
+              <span className="text-dark/30 text-xs">
+                I&apos;m here whenever you need me.
+              </span>
             </p>
             {transcript && (
               <div className="mt-4 px-4 py-2 bg-blue/10 rounded-xl text-sm text-dark/70 max-w-sm">
@@ -253,7 +376,12 @@ export default function Home() {
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex mb-4 msg-enter ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            key={i}
+            className={`flex mb-4 msg-enter ${
+              msg.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
             {msg.role === "assistant" && (
               <div className="w-8 h-8 rounded-full bg-coffee/10 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-sm">
                 ☕
@@ -267,46 +395,67 @@ export default function Home() {
               }`}
             >
               {msg.content}
-              {i === messages.length - 1 && msg.role === "assistant" && isStreaming && (
-                <span className="inline-flex ml-1 gap-0.5">
-                  <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
-                  <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
-                  <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
-                </span>
-              )}
+              {i === messages.length - 1 &&
+                msg.role === "assistant" &&
+                isStreaming && (
+                  <span className="inline-flex ml-1 gap-0.5">
+                    <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
+                    <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
+                    <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
+                  </span>
+                )}
             </div>
           </div>
         ))}
 
-        {messages.length > 0 && !isStreaming && messages[messages.length - 1]?.role === "user" && (
-          <div className="flex mb-4 justify-start">
-            <div className="w-8 h-8 rounded-full bg-coffee/10 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-sm">☕</div>
-            <div className="px-4 py-3 rounded-2xl bg-white border border-warm-gray/30 rounded-bl-md">
-              <span className="inline-flex gap-0.5">
-                <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
-                <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
-                <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
-              </span>
+        {messages.length > 0 &&
+          !isStreaming &&
+          messages[messages.length - 1]?.role === "user" && (
+            <div className="flex mb-4 justify-start">
+              <div className="w-8 h-8 rounded-full bg-coffee/10 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-sm">
+                ☕
+              </div>
+              <div className="px-4 py-3 rounded-2xl bg-white border border-warm-gray/30 rounded-bl-md">
+                <span className="inline-flex gap-0.5">
+                  <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
+                  <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
+                  <span className="typing-dot w-1.5 h-1.5 bg-coffee/40 rounded-full inline-block" />
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* Recording indicator */}
       {recording && messages.length > 0 && (
         <div className="px-4 py-2 bg-coffee/5 border-t border-warm-gray/30 flex items-center gap-3">
-          <button onClick={toggleRecording} className="w-10 h-10 rounded-full bg-coffee pulse-recording flex items-center justify-center text-cream text-lg">
+          <button
+            onClick={toggleRecording}
+            className="w-10 h-10 rounded-full bg-coffee pulse-recording flex items-center justify-center text-cream text-lg"
+          >
             🎙️
           </button>
-          <p className="text-sm text-dark/60 flex-1">{transcript || "Listening..."}</p>
+          <p className="text-sm text-dark/60 flex-1">
+            {transcript || "Listening..."}
+          </p>
         </div>
       )}
 
       {/* Input */}
       <div className="px-4 py-3 border-t border-warm-gray/30 bg-cream/80 backdrop-blur-sm">
-        <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex gap-2 items-center">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage(input);
+          }}
+          className="flex gap-2 items-center"
+        >
           {messages.length > 0 && !recording && (
-            <button type="button" onClick={toggleRecording} className="w-10 h-10 rounded-full bg-coffee/10 hover:bg-coffee/20 flex items-center justify-center transition-colors flex-shrink-0">
+            <button
+              type="button"
+              onClick={toggleRecording}
+              className="w-10 h-10 rounded-full bg-coffee/10 hover:bg-coffee/20 flex items-center justify-center transition-colors flex-shrink-0"
+            >
               🎙️
             </button>
           )}
