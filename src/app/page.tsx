@@ -73,8 +73,43 @@ export default function Home() {
   const [currentConvoId, setCurrentConvoId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Play TTS audio for assistant response
+  const playVoice = async (text: string) => {
+    if (!voiceEnabled || !text.trim()) return;
+    try {
+      setIsPlaying(true);
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error("TTS failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(url);
+      };
+      audio.onerror = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(url);
+      };
+      await audio.play();
+    } catch {
+      setIsPlaying(false);
+    }
+  };
 
   // Load user + conversations on mount
   useEffect(() => {
@@ -207,6 +242,9 @@ export default function Home() {
         // Save assistant message
         if (convoId && assistantText)
           await saveMessage(convoId, "assistant", assistantText);
+
+        // Play voice response
+        if (assistantText) playVoice(assistantText);
       } catch {
         const errMsg =
           "Ugh, my brain just glitched. Like when the WiFi at Luke's goes out. Try again? ☕";
@@ -459,6 +497,22 @@ export default function Home() {
               🎙️
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => {
+              setVoiceEnabled(!voiceEnabled);
+              if (isPlaying && audioRef.current) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+              }
+            }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0 text-xs ${
+              voiceEnabled ? "bg-coffee/20 text-coffee" : "bg-warm-gray/30 text-dark/30"
+            }`}
+            title={voiceEnabled ? "Voice on" : "Voice off"}
+          >
+            {voiceEnabled ? "🔊" : "🔇"}
+          </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
