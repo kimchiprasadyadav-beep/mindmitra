@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  --lavender: #E8D5F5;
+  --teal: #5B9EA6;
+  --warm-white: #FAFAF8;
+  --dark-text: #2D3436;
+  --lavender-dark: #2A1F3D;
+  --teal-dark: #1A3A3F;
+  --bg-dark: #1A1A2E;
+  --surface-dark: #222240;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--warm-white);
+  color: var(--dark-text);
+  transition: background 0.3s, color 0.3s;
+}
+
+.dark body, .dark { background: var(--bg-dark); color: #E8E8E8; }
+
+@keyframes breatheIn { 0% { transform: scale(0.6); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes breatheHold { 0%, 100% { transform: scale(1); opacity: 1; } }
+@keyframes breatheOut { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.6); opacity: 0.5; } }
+
+.breathe-in { animation: breatheIn 4s ease-in-out forwards; }
+.breathe-hold { animation: breatheHold 7s ease-in-out forwards; }
+.breathe-out { animation: breatheOut 8s ease-in-out forwards; }
+
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(91,158,166,0.3); }
+  50% { box-shadow: 0 0 60px rgba(91,158,166,0.6); }
+}
+.pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
