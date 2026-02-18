@@ -12,6 +12,245 @@ type Conversation = {
   updated_at: string;
 };
 
+/* ─── Onboarding Component ─── */
+function OnboardingFlow({ onComplete }: { onComplete: (firstMessage: string) => void }) {
+  const [screen, setScreen] = useState(0);
+  const [mood, setMood] = useState<string | null>(null);
+  const [fadeClass, setFadeClass] = useState("animate-fade-in");
+
+  const transition = (next: () => void) => {
+    setFadeClass("opacity-0 transition-opacity duration-300");
+    setTimeout(() => {
+      next();
+      setFadeClass("animate-fade-in");
+    }, 300);
+  };
+
+  const getMoodMessage = (m: string) => {
+    if (m === "Great" || m === "Good") return "That's lovely to hear. What's been making things good lately?";
+    if (m === "Okay") return "Okay is okay. Is there something on your mind you'd like to explore?";
+    return "I'm glad you're here. You don't have to carry this alone. What's weighing on you?";
+  };
+
+  const ONBOARD_MOODS = [
+    { emoji: "😊", label: "Great" },
+    { emoji: "😌", label: "Good" },
+    { emoji: "😐", label: "Okay" },
+    { emoji: "😔", label: "Low" },
+    { emoji: "😰", label: "Anxious" },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-cream z-50 flex items-center justify-center px-6">
+      <div className={`max-w-md w-full text-center ${fadeClass}`}>
+        {screen === 0 && (
+          <div className="space-y-6">
+            <div className="w-20 h-20 rounded-full bg-warm-brown/8 flex items-center justify-center mx-auto">
+              <span className="text-3xl">☕</span>
+            </div>
+            <h1 className="font-[family-name:var(--font-playfair)] text-3xl text-warm-brown">
+              Hey 👋 I&apos;m Lorelai
+            </h1>
+            <p className="text-warm-brown/50 text-base leading-relaxed">
+              I&apos;m here to listen — no judgment, no fixing, just understanding.
+            </p>
+            <p className="text-warm-brown/40 text-sm">Let&apos;s start with something simple.</p>
+            <button
+              onClick={() => transition(() => setScreen(1))}
+              className="mt-4 px-8 py-3 rounded-full bg-warm-brown text-cream text-sm font-medium hover:bg-warm-brown/90 transition-colors"
+            >
+              Let&apos;s go
+            </button>
+          </div>
+        )}
+
+        {screen === 1 && (
+          <div className="space-y-8">
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-warm-brown">
+              How&apos;s your headspace right now?
+            </h2>
+            <div className="flex gap-4 justify-center">
+              {ONBOARD_MOODS.map((m) => (
+                <button
+                  key={m.label}
+                  onClick={() => {
+                    setMood(m.label);
+                    transition(() => setScreen(2));
+                  }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-warm-brown/5 transition-all hover:scale-105"
+                >
+                  <span className="text-3xl">{m.emoji}</span>
+                  <span className="text-warm-brown/50 text-xs">{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {screen === 2 && mood && (
+          <div className="space-y-8">
+            <div className="w-16 h-16 rounded-full bg-warm-brown/8 flex items-center justify-center mx-auto">
+              <span className="text-2xl">☕</span>
+            </div>
+            <p className="text-warm-brown/70 text-lg leading-relaxed font-[family-name:var(--font-playfair)]">
+              {getMoodMessage(mood)}
+            </p>
+            <button
+              onClick={() => {
+                localStorage.setItem("lorelai-onboarded", "true");
+                onComplete(getMoodMessage(mood));
+              }}
+              className="px-8 py-3 rounded-full bg-warm-brown text-cream text-sm font-medium hover:bg-warm-brown/90 transition-colors"
+            >
+              Start talking
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Post-Session Share Card ─── */
+function ShareCard({ convoId, onDismiss }: { convoId: string | null; onDismiss: () => void }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+  }, []);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: "Lorelai — someone who listens",
+      text: "I found something that helps when things get heavy. Free, private, no sign-up needed.",
+      url: (typeof window !== "undefined" ? window.location.origin : "") + "/landing",
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(shareData.url);
+      alert("Link copied!");
+    }
+  };
+
+  const dismiss = () => {
+    setVisible(false);
+    if (convoId) localStorage.setItem(`lorelai-share-dismissed-${convoId}`, "true");
+    setTimeout(onDismiss, 300);
+  };
+
+  return (
+    <div
+      className={`mx-4 mb-2 p-4 rounded-2xl border border-warm-brown/12 bg-cream shadow-sm transition-all duration-500 ease-out ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-warm-brown/70 text-sm font-medium">That felt good, right? 💛</p>
+          <p className="text-warm-brown/40 text-xs mt-1">Someone you know might need this too.</p>
+        </div>
+        <button onClick={dismiss} className="text-warm-brown/25 hover:text-warm-brown/50 text-sm ml-2 flex-shrink-0">✕</button>
+      </div>
+      <button
+        onClick={handleShare}
+        className="mt-3 px-5 py-2 rounded-full bg-warm-brown text-cream text-xs font-medium hover:bg-warm-brown/90 transition-colors"
+      >
+        Share Lorelai
+      </button>
+    </div>
+  );
+}
+
+/* ─── Wellness Journey Overlay ─── */
+function WellnessJourney({ conversations, messages, onClose }: {
+  conversations: Conversation[];
+  messages: Message[];
+  onClose: () => void;
+}) {
+  const totalConvos = conversations.length;
+  const totalMsgs = conversations.length > 0
+    ? messages.filter((m) => m.role === "user").length + conversations.length * 5 // rough estimate
+    : messages.filter((m) => m.role === "user").length;
+
+  // Load saved moods
+  const [moodTrend, setMoodTrend] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("lorelai-mood-history");
+      if (saved) setMoodTrend(JSON.parse(saved).slice(-5));
+    } catch { /* ignore */ }
+  }, []);
+
+  const MOOD_EMOJI: Record<string, string> = { Great: "😊", Good: "😌", Okay: "😐", Low: "😔", Anxious: "😰" };
+
+  const handleShare = async () => {
+    const text = `I've had ${totalConvos} conversations on Lorelai ☕${moodTrend.length > 0 ? "\n" + moodTrend.map((m) => MOOD_EMOJI[m] || m).join(" ") : ""}\nlorelai · free AI therapy companion`;
+    const shareData = {
+      title: "My Lorelai Journey",
+      text,
+      url: (typeof window !== "undefined" ? window.location.origin : "") + "/landing",
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(text + "\n" + shareData.url);
+      alert("Copied to clipboard!");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-cream/98 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
+      <button onClick={onClose} className="absolute top-5 right-5 text-warm-brown/40 hover:text-warm-brown text-lg">✕</button>
+      <div className="max-w-sm w-full mx-6 text-center space-y-6">
+        <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-warm-brown">📊 My Journey</h2>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 rounded-2xl bg-white border border-warm-brown/8">
+            <p className="text-2xl text-warm-brown font-[family-name:var(--font-playfair)]">{totalConvos}</p>
+            <p className="text-warm-brown/40 text-xs mt-1">conversations</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-white border border-warm-brown/8">
+            <p className="text-2xl text-warm-brown font-[family-name:var(--font-playfair)]">{totalMsgs}</p>
+            <p className="text-warm-brown/40 text-xs mt-1">messages sent</p>
+          </div>
+        </div>
+
+        {moodTrend.length > 0 && (
+          <div className="p-4 rounded-2xl bg-white border border-warm-brown/8">
+            <p className="text-warm-brown/40 text-xs mb-2">Recent moods</p>
+            <p className="text-2xl tracking-wider">{moodTrend.map((m) => MOOD_EMOJI[m] || m).join(" ")}</p>
+          </div>
+        )}
+
+        <p className="text-warm-brown/50 text-sm leading-relaxed">
+          You&apos;ve been showing up for yourself.<br />That takes courage. 💛
+        </p>
+
+        <div className="space-y-2">
+          <button
+            onClick={handleShare}
+            className="px-6 py-3 rounded-full bg-warm-brown text-cream text-sm font-medium hover:bg-warm-brown/90 transition-colors"
+          >
+            Share your progress
+          </button>
+        </div>
+
+        {/* Shareable card preview */}
+        <div className="p-5 rounded-2xl bg-cream border border-warm-brown/12 text-center space-y-2">
+          <p className="text-warm-brown text-sm font-medium">
+            I&apos;ve had {totalConvos} conversations on Lorelai ☕
+          </p>
+          {moodTrend.length > 0 && (
+            <p className="text-lg">{moodTrend.map((m) => MOOD_EMOJI[m] || m).join(" ")}</p>
+          )}
+          <p className="text-warm-brown/30 text-[10px] tracking-wide">lorelai · free AI therapy companion</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const STARTERS = [
   "How are you feeling?",
   "I need to vent",
@@ -63,6 +302,11 @@ export default function Home() {
   const [autoDelete, setAutoDelete] = useState<string>("off");
   const [privacyMode, setPrivacyMode] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [showJourney, setShowJourney] = useState(false);
+  const [userMessageCount, setUserMessageCount] = useState(0);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -106,6 +350,11 @@ export default function Home() {
     setAutoDelete(savedAutoDelete);
     const savedPrivacyMode = localStorage.getItem("lorelai-privacy-mode") === "true";
     setPrivacyMode(savedPrivacyMode);
+
+    // Check if user needs onboarding
+    if (!localStorage.getItem("lorelai-onboarded")) {
+      setShowOnboarding(true);
+    }
 
     const init = async () => {
       // Check anonymous mode
@@ -226,6 +475,17 @@ export default function Home() {
       if (!isTemporary && !isAnonymous && convoId) await saveMessage(convoId, "assistant", errMsg);
     }
     setIsStreaming(false);
+
+    // Track user messages for share card
+    const newCount = userMessageCount + 1;
+    setUserMessageCount(newCount);
+    if (newCount >= 5) {
+      const dismissed = currentConvoId ? localStorage.getItem(`lorelai-share-dismissed-${currentConvoId}`) : null;
+      if (!dismissed) {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(() => setShowShareCard(true), 10000);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, isStreaming, userName, currentConvoId, userId, isTemporary, isAnonymous, selectedMood, conversations, privacyMode]);
 
@@ -264,6 +524,9 @@ export default function Home() {
     setSelectedMood(null);
     setShowMoodCheckin(true);
     setShowCrisisBanner(false);
+    setShowShareCard(false);
+    setUserMessageCount(0);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (temp !== undefined) setIsTemporary(temp);
   };
 
@@ -312,6 +575,12 @@ export default function Home() {
     setShowSettings(false);
   };
 
+  const handleOnboardingComplete = (firstMessage: string) => {
+    setShowOnboarding(false);
+    setShowMoodCheckin(false);
+    setMessages([{ role: "assistant", content: firstMessage }]);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -327,6 +596,18 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col bg-cream">
+      {/* Onboarding */}
+      {showOnboarding && <OnboardingFlow onComplete={handleOnboardingComplete} />}
+
+      {/* Wellness Journey */}
+      {showJourney && (
+        <WellnessJourney
+          conversations={conversations}
+          messages={messages}
+          onClose={() => setShowJourney(false)}
+        />
+      )}
+
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-4 border-b border-warm-brown/8">
         <button
@@ -450,7 +731,15 @@ export default function Home() {
               )}
               </>
             )}
-            <button onClick={handleSignOut} className="mt-8 text-warm-brown/25 hover:text-warm-brown/50 text-xs transition-colors">
+            {conversations.length >= 3 && (
+              <button
+                onClick={() => { setShowHistory(false); setShowJourney(true); }}
+                className="mt-6 w-full px-4 py-3 rounded-xl border border-warm-brown/10 text-warm-brown/50 hover:bg-warm-brown/5 hover:text-warm-brown/70 text-sm transition-colors text-left"
+              >
+                📊 My Journey
+              </button>
+            )}
+            <button onClick={handleSignOut} className="mt-4 text-warm-brown/25 hover:text-warm-brown/50 text-xs transition-colors">
               Sign out
             </button>
           </div>
@@ -620,7 +909,16 @@ export default function Home() {
               {MOODS.map((m) => (
                 <button
                   key={m.label}
-                  onClick={() => { setSelectedMood(m.label); setShowMoodCheckin(false); }}
+                  onClick={() => {
+                    setSelectedMood(m.label);
+                    setShowMoodCheckin(false);
+                    // Save mood to history
+                    try {
+                      const history = JSON.parse(localStorage.getItem("lorelai-mood-history") || "[]");
+                      history.push(m.label);
+                      localStorage.setItem("lorelai-mood-history", JSON.stringify(history.slice(-20)));
+                    } catch { /* ignore */ }
+                  }}
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-warm-brown/5 transition-all hover:scale-105"
                 >
                   <span className="text-3xl">{m.emoji}</span>
@@ -759,6 +1057,14 @@ export default function Home() {
           </button>
           <p className="text-sm text-warm-brown/50 flex-1">{transcript || "Listening..."}</p>
         </div>
+      )}
+
+      {/* Share Card */}
+      {showShareCard && (
+        <ShareCard
+          convoId={currentConvoId}
+          onDismiss={() => setShowShareCard(false)}
+        />
       )}
 
       {/* Input */}
