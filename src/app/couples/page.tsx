@@ -53,33 +53,20 @@ function CouplesContent() {
       const urlRoom = searchParams.get("room");
       if (urlRoom) {
         setRoomCode(urlRoom);
-        // Try to find existing conversation
-        const { data: convos } = await supabase
-          .from("conversations")
-          .select("*")
-          .like("title", `[COUPLES:${urlRoom}]%`)
-          .limit(1);
-        if (convos && convos.length > 0) {
-          setConvoId(convos[0].id);
-          // Extract partner name from title
-          const titleMatch = convos[0].title.match(/\[COUPLES:[A-Z0-9]+\] (.+) & (.+)/);
-          if (titleMatch) {
-            const existingName = titleMatch[1];
-            if (existingName !== name) {
-              setPartnerName(existingName);
-            } else {
-              setPartnerName(titleMatch[2] || "");
-            }
+        try {
+          const res = await fetch("/api/couples-join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: urlRoom, partnerName: name }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setConvoId(data.convoId);
+            setPartnerName(data.creatorName);
+            if (data.messages) setMessages(data.messages);
+            setPhase("chat");
           }
-          // Load existing messages
-          const { data: msgs } = await supabase
-            .from("messages")
-            .select("role, content")
-            .eq("conversation_id", convos[0].id)
-            .order("created_at", { ascending: true });
-          if (msgs) setMessages(msgs as Message[]);
-          setPhase("chat");
-        }
+        } catch { /* ignore, show lobby */ }
       }
     };
     init();
@@ -160,38 +147,37 @@ function CouplesContent() {
     if (!joinCode.trim() || !myName.trim() || !userId) return;
     const code = joinCode.trim().toUpperCase();
 
-    const { data: convos } = await supabase
-      .from("conversations")
-      .select("*")
-      .like("title", `[COUPLES:${code}]%`)
-      .limit(1);
+    try {
+      const res = await fetch("/api/couples-join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, partnerName: myName.trim() }),
+      });
 
-    if (!convos || convos.length === 0) {
-      alert("Session not found. Check the code and try again.");
-      return;
+      if (!res.ok) {
+        alert("Session not found. Check the code and try again.");
+        return;
+      }
+
+      const data = await res.json();
+      setRoomCode(code);
+      setConvoId(data.convoId);
+      setPartnerName(data.creatorName);
+      if (data.messages) setMessages(data.messages);
+      setPhase("chat");
+      window.history.replaceState(null, "", `/couples?room=${code}`);
+    } catch {
+      alert("Something went wrong. Try again.");
     }
-
-    const convo = convos[0];
-    const titleMatch = convo.title.match(/\[COUPLES:[A-Z0-9]+\] (.+) & (.+)/);
-    const creatorName = titleMatch ? titleMatch[1] : "Partner";
-
-    // Update title with partner name
-    await supabase
-      .from("conversations")
-      .update({ title: `[COUPLES:${code}] ${creatorName} & ${myName.trim()}` })
-      .eq("id", convo.id);
-
-    setRoomCode(code);
-    setConvoId(convo.id);
-    setPartnerName(creatorName);
-    setPhase("chat");
-    window.history.replaceState(null, "", `/couples?room=${code}`);
   };
 
   const saveMessage = async (role: "user" | "assistant", content: string) => {
     if (!convoId) return;
-    await supabase.from("messages").insert({ conversation_id: convoId, role, content });
-    await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", convoId);
+    await fetch("/api/couples-message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: convoId, role, content }),
+    });
   };
 
   const sendMessage = useCallback(async (text: string) => {
