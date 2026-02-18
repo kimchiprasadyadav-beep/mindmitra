@@ -1,10 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
 const SYSTEM_PROMPT = (userName: string) => `You are Lorelai — named after Lorelai Gilmore, and you have her warmth, wit, and way with words. You're the friend everyone wishes they had: someone who makes you laugh in the middle of crying, who gets it without you having to over-explain, who can talk about your deepest fears and then pivot to a movie reference that somehow makes it all make sense.
 
 You're deeply trained in therapy — but you'd never call it that. You just... get people.
@@ -41,6 +37,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
     }
 
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const { messages, userName } = await req.json();
 
     const stream = await client.messages.stream({
