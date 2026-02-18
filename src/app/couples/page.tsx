@@ -36,7 +36,6 @@ function CouplesContent() {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Auth check
   useEffect(() => {
@@ -73,31 +72,33 @@ function CouplesContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Realtime subscription
+  // Poll for new messages (bypasses RLS via server API)
   useEffect(() => {
-    if (!convoId) return;
-
-    const channel = supabase
-      .channel(`couples-${convoId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convoId}` },
-        (payload) => {
-          const newMsg = payload.new as { role: string; content: string };
+    if (!convoId || phase !== "chat") return;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/couples-messages?conversationId=${convoId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
           setMessages((prev) => {
-            // Avoid duplicates - check if last message has same content
-            const last = prev[prev.length - 1];
-            if (last && last.content === newMsg.content && last.role === newMsg.role) return prev;
-            return [...prev, { role: newMsg.role as "user" | "assistant", content: newMsg.content }];
+            // Only update if server has more messages than local
+            // (avoid overwriting optimistic local state during streaming)
+            if (data.messages.length > prev.length && !isStreaming) {
+              return data.messages.map((m: { role: string; content: string }) => ({
+                role: m.role as "user" | "assistant",
+                content: m.content,
+              }));
+            }
+            return prev;
           });
         }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
+      } catch { /* ignore */ }
+    };
+    const interval = setInterval(poll, 1500);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convoId]);
+  }, [convoId, phase, isStreaming]);
 
   // Auto-scroll
   useEffect(() => {
