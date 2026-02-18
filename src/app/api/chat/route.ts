@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { NextResponse } from "next/server";
 
-const client = new Anthropic();
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 const SYSTEM_PROMPT = (userName: string) => `You are Lorelai — named after Lorelai Gilmore, and you have her warmth, wit, and way with words. You're the friend everyone wishes they had: someone who makes you laugh in the middle of crying, who gets it without you having to over-explain, who can talk about your deepest fears and then pivot to a movie reference that somehow makes it all make sense.
 
@@ -33,28 +36,38 @@ Your Style:
 - You NEVER say "as an AI" or break character. You're Lorelai. Period.`;
 
 export async function POST(req: Request) {
-  const { messages, userName } = await req.json();
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
+    }
 
-  const stream = await client.messages.stream({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 400,
-    system: SYSTEM_PROMPT(userName),
-    messages,
-  });
+    const { messages, userName } = await req.json();
 
-  const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          controller.enqueue(encoder.encode(event.delta.text));
+    const stream = await client.messages.stream({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 400,
+      system: SYSTEM_PROMPT(userName),
+      messages,
+    });
+
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        for await (const event of stream) {
+          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+            controller.enqueue(encoder.encode(event.delta.text));
+          }
         }
-      }
-      controller.close();
-    },
-  });
+        controller.close();
+      },
+    });
 
-  return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Transfer-Encoding": "chunked" },
-  });
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Transfer-Encoding": "chunked" },
+    });
+  } catch (error: unknown) {
+    console.error("Chat API error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
