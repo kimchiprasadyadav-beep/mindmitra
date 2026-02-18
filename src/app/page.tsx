@@ -15,8 +15,10 @@ type Conversation = {
 const STARTERS = [
   "How are you feeling?",
   "I need to vent",
-  "Help me reflect",
   "Kuch baat karni hai",
+  "मुझे बात करनी है",
+  "Enakku pesanum",
+  "Naaku matladali undi",
 ];
 
 const MOODS = [

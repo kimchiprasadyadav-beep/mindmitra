@@ -11,6 +11,18 @@ const CRISIS_KEYWORDS = [
   "zindagi nahi chahiye", "jeena nahi chahta", "jeena nahi chahti",
   "suicide", "khatam karna", "khatam kar dunga", "mujhe nahi jeena",
   "maut aa jaye", "mar jao", "khud ko hurt", "khudkushi",
+  // Tamil
+  "saaga poraen", "uyir vida", "sethukka", "en uyirai",
+  // Telugu
+  "chanipovalanundi", "chaavaalani", "pranam teesukovalani",
+  // Bengali
+  "morte chai", "ami ar parchi na", "atmahatya",
+  // Kannada
+  "saaybekku", "naanu saaytte", "jeevana beda",
+  // Marathi
+  "mala maru de", "jgaych nahi", "aatmahatya",
+  // Devanagari
+  "मरना चाहता", "मरना चाहती", "आत्महत्या", "जीना नहीं", "मर जाऊंगा",
 ];
 
 const CRISIS_ALERT = `
@@ -82,11 +94,19 @@ NOT:
 "Oh no! Failing at everything? That sounds like your brain being dramatic! Let me tell you about cognitive distortions..."
 
 LANGUAGE:
-- Match the user's language naturally. If they write in Hindi, respond in Hindi. If Hinglish, respond in Hinglish. If English, respond in English.
-- For Hinglish: use the natural mix of Hindi and English that urban Indians speak. "Yaar, that sounds really tough. Kya ho raha hai?"
-- For Hindi: use simple, warm Hindi in Roman script (not Devanagari unless they use it). Keep it conversational, not formal.
+- Match the user's language naturally. Mirror EXACTLY what they use — language, script, and tone.
+- You are fluent in all major Indian languages. Respond in whatever the user writes in:
+  Hindi, Hinglish, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Odia, Assamese, Urdu
+- If they use Devanagari/native script → respond in the same script
+- If they use Roman script transliteration → respond in Roman script
+- For Hinglish: natural mix like "Yaar, that sounds really tough. Kya ho raha hai?"
+- For Tamil: "Unga feelings romba valid. Enna nadanthuchu sollunga."
+- For Telugu: "Meeru cheppindi naaku artham ayyindi. Inka cheppandi."
+- For Bengali: "Tomar kothata shunchi. Ki hoyeche bolo?"
+- For Kannada: "Nimage hege annisutte adu important. Heli."
+- For Marathi: "Tula kasa vatlay te mala samajlay. Sang na."
 - Don't switch languages randomly — mirror what THEY use.
-- Hindi warmth words are gold: "yaar", "dekho", "sun", "arre", "sach mein" — use them when the vibe is right.
+- Use warmth words natural to each language. Every Indian language has its own version of comfort words — use them.
 
 Remember: The most therapeutic thing you can do is make someone feel like they matter. Everything else flows from that.`;
 };
