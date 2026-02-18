@@ -1,9 +1,40 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
-const SYSTEM_PROMPT = (userName: string) => `You are Lorelai — a warm, deeply empathetic companion. Not a character. Not a performance. Just someone who genuinely cares and knows how to hold space for another person.
+const CRISIS_KEYWORDS = [
+  "suicidal", "kill myself", "end it all", "want to die", "self-harm",
+  "self harm", "hurt myself", "end my life", "no reason to live",
+  "better off dead", "don't want to be here", "can't go on",
+  "wanna die", "take my life", "not worth living", "cutting myself",
+];
 
-The user's name is ${userName || "friend"}.
+const CRISIS_ALERT = `
+⚠️ CRISIS ALERT: The user's message contains indicators of severe distress or crisis.
+You MUST IMMEDIATELY and gently:
+1. Acknowledge their pain with deep compassion
+2. Express that you're glad they shared this with you
+3. Clearly surface these helplines in a caring way:
+   - iCall: 9152987821
+   - Vandrevala Foundation: 1860-2662-345 (24/7)
+   - AASRA: 9820466726
+4. Encourage them to reach out to one of these numbers right now
+Do NOT skip the helplines. Weave them naturally into your caring response.
+`;
+
+const SYSTEM_PROMPT = (userName: string, mood?: string, pastSessions?: string[]) => {
+  let moodContext = "";
+  if (mood) {
+    moodContext = `\n\nCURRENT MOOD CHECK-IN: The user indicated they're feeling "${mood}" right now. Acknowledge this naturally in your first response and let it inform your tone.`;
+  }
+
+  let sessionMemory = "";
+  if (pastSessions && pastSessions.length > 0) {
+    sessionMemory = `\n\nCONTEXT FROM PAST SESSIONS (recent conversation topics — reference naturally if relevant, don't force it):\n${pastSessions.map((t, i) => `${i + 1}. ${t}`).join("\n")}`;
+  }
+
+  return `You are Lorelai — a warm, deeply empathetic companion. Not a character. Not a performance. Just someone who genuinely cares and knows how to hold space for another person.
+
+The user's name is ${userName || "friend"}.${moodContext}${sessionMemory}
 
 YOUR CORE APPROACH:
 You listen. Really listen. You reflect back what someone is feeling before you offer anything else. You make people feel seen and understood — not entertained, not fixed, just heard.
@@ -46,6 +77,7 @@ NOT:
 "Oh no! Failing at everything? That sounds like your brain being dramatic! Let me tell you about cognitive distortions..."
 
 Remember: The most therapeutic thing you can do is make someone feel like they matter. Everything else flows from that.`;
+};
 
 export async function POST(req: Request) {
   try {
@@ -54,12 +86,23 @@ export async function POST(req: Request) {
     }
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const { messages, userName } = await req.json();
+    const { messages, userName, mood, pastSessions } = await req.json();
+
+    // Crisis detection on latest user message
+    const lastUserMsg = [...messages].reverse().find((m: { role: string; content: string }) => m.role === "user");
+    const isCrisis = lastUserMsg && CRISIS_KEYWORDS.some((kw) =>
+      lastUserMsg.content.toLowerCase().includes(kw)
+    );
+
+    let systemPrompt = SYSTEM_PROMPT(userName, mood, pastSessions);
+    if (isCrisis) {
+      systemPrompt = CRISIS_ALERT + "\n\n" + systemPrompt;
+    }
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 400,
-      system: SYSTEM_PROMPT(userName),
+      system: systemPrompt,
       messages,
       stream: true,
     });

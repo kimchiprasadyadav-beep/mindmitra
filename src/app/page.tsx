@@ -18,6 +18,20 @@ const STARTERS = [
   "Help me reflect",
 ];
 
+const MOODS = [
+  { emoji: "😊", label: "Great" },
+  { emoji: "😌", label: "Good" },
+  { emoji: "😐", label: "Okay" },
+  { emoji: "😔", label: "Low" },
+  { emoji: "😰", label: "Anxious" },
+];
+
+const CRISIS_NUMBERS = [
+  { name: "iCall", number: "9152987821" },
+  { name: "Vandrevala Foundation", number: "1860-2662-345", note: "24/7" },
+  { name: "AASRA", number: "9820466726" },
+];
+
 export default function Home() {
   const supabase = createClient();
   const router = useRouter();
@@ -37,6 +51,10 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTemporary, setIsTemporary] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [showMoodCheckin, setShowMoodCheckin] = useState(true);
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [showCrisisBanner, setShowCrisisBanner] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -132,10 +150,11 @@ export default function Home() {
     }
 
     try {
+      const pastSessions = conversations.slice(0, 5).map((c) => c.title);
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, userName }),
+        body: JSON.stringify({ messages: newMessages, userName, mood: selectedMood, pastSessions }),
       });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -149,6 +168,10 @@ export default function Home() {
         }
       }
       if (!isTemporary && convoId && assistantText) await saveMessage(convoId, "assistant", assistantText);
+      // Check if response contains helpline numbers (crisis detection)
+      if (assistantText && (assistantText.includes("9152987821") || assistantText.includes("1860-2662-345") || assistantText.includes("9820466726"))) {
+        setShowCrisisBanner(true);
+      }
       if (assistantText) playVoice(assistantText);
     } catch {
       const errMsg = "I'm having a moment — can you try again? 💛";
@@ -157,7 +180,7 @@ export default function Home() {
     }
     setIsStreaming(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, isStreaming, userName, currentConvoId, userId, isTemporary]);
+  }, [messages, isStreaming, userName, currentConvoId, userId, isTemporary, selectedMood, conversations]);
 
   const toggleRecording = useCallback(() => {
     if (recording) {
@@ -191,6 +214,9 @@ export default function Home() {
   const newChat = (temp?: boolean) => {
     setMessages([]);
     setCurrentConvoId(null);
+    setSelectedMood(null);
+    setShowMoodCheckin(true);
+    setShowCrisisBanner(false);
     if (temp !== undefined) setIsTemporary(temp);
   };
 
@@ -254,6 +280,16 @@ export default function Home() {
         </h1>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowBreathing(true)}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-warm-brown/5 transition-colors text-warm-brown/40"
+            title="Breathing exercise"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4l2 2" />
+            </svg>
+          </button>
           {isTemporary && (
             <span className="text-[10px] text-warm-brown/30 mr-1">temp</span>
           )}
@@ -346,10 +382,79 @@ export default function Home() {
         </div>
       )}
 
+      {/* Crisis Banner */}
+      {showCrisisBanner && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-3 animate-fade-in">
+          <div className="max-w-2xl mx-auto flex items-start gap-3">
+            <span className="text-red-400 text-lg flex-shrink-0">💛</span>
+            <div className="flex-1">
+              <p className="text-red-800 text-sm font-medium mb-1">You&apos;re not alone. Help is available right now:</p>
+              <div className="flex flex-wrap gap-3 text-xs">
+                {CRISIS_NUMBERS.map((c) => (
+                  <a key={c.number} href={`tel:${c.number}`} className="text-red-700 hover:text-red-900 underline">
+                    {c.name}: {c.number}{c.note ? ` (${c.note})` : ""}
+                  </a>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setShowCrisisBanner(false)} className="text-red-300 hover:text-red-500 text-sm flex-shrink-0">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Breathing Exercise Overlay */}
+      {showBreathing && (
+        <div className="fixed inset-0 bg-cream z-50 flex flex-col items-center justify-center animate-fade-in">
+          <button
+            onClick={() => setShowBreathing(false)}
+            className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center text-warm-brown/40 hover:text-warm-brown hover:bg-warm-brown/5 transition-colors text-lg"
+          >
+            ✕
+          </button>
+          <div className="breathing-circle w-40 h-40 rounded-full bg-warm-brown/10 border-2 border-warm-brown/20 flex items-center justify-center mb-8">
+            <div className="breathing-text text-warm-brown/60 text-sm font-medium tracking-wide" />
+          </div>
+          <p className="text-warm-brown/40 text-sm">Follow the circle. Breathe gently.</p>
+        </div>
+      )}
+
       {/* Chat Area */}
       <div ref={chatRef} className="flex-1 overflow-y-auto">
+        {/* Mood Check-in (before empty state) */}
+        {messages.length === 0 && !recording && showMoodCheckin && !currentConvoId && (
+          <div className="flex flex-col items-center justify-center h-full px-6 animate-fade-in">
+            <div className="w-20 h-20 rounded-full bg-warm-brown/6 flex items-center justify-center mb-6">
+              <span className="text-3xl">☕</span>
+            </div>
+            <h2 className="font-[family-name:var(--font-playfair)] text-2xl text-warm-brown mb-2">
+              How are you feeling?
+            </h2>
+            <p className="text-warm-brown/40 text-sm text-center mb-8">
+              Take a moment to check in with yourself.
+            </p>
+            <div className="flex gap-4 mb-8">
+              {MOODS.map((m) => (
+                <button
+                  key={m.label}
+                  onClick={() => { setSelectedMood(m.label); setShowMoodCheckin(false); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-warm-brown/5 transition-all hover:scale-105"
+                >
+                  <span className="text-3xl">{m.emoji}</span>
+                  <span className="text-warm-brown/50 text-xs">{m.label}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowMoodCheckin(false)}
+              className="text-warm-brown/25 text-xs hover:text-warm-brown/40 transition-colors"
+            >
+              Skip
+            </button>
+          </div>
+        )}
+
         {/* Empty State */}
-        {messages.length === 0 && !recording && (
+        {messages.length === 0 && !recording && (!showMoodCheckin || !!currentConvoId) && (
           <div className="flex flex-col items-center justify-center h-full px-6 animate-fade-in">
             <div className="w-20 h-20 rounded-full bg-warm-brown/6 flex items-center justify-center mb-6">
               <span className="text-3xl">☕</span>
@@ -360,7 +465,10 @@ export default function Home() {
             <p className="text-warm-brown/40 text-sm text-center mb-8 leading-relaxed">
               I&apos;m here whenever you need me.<br />Take your time.
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            {selectedMood && (
+              <p className="text-warm-brown/30 text-xs mb-4">Feeling {selectedMood.toLowerCase()} today</p>
+            )}
+            <div className="flex flex-wrap gap-2 justify-center mb-4">
               {STARTERS.map((s) => (
                 <button
                   key={s}
@@ -371,6 +479,12 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <button
+              onClick={() => setShowBreathing(true)}
+              className="px-4 py-2 rounded-full border border-warm-brown/8 text-warm-brown/30 text-xs hover:bg-warm-brown/5 hover:text-warm-brown/50 transition-all"
+            >
+              🫁 Breathing exercise
+            </button>
           </div>
         )}
 

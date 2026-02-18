@@ -79,6 +79,28 @@ html, body {
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
+/* Breathing exercise */
+@keyframes breathe {
+  0%, 100% { transform: scale(0.6); }
+  33.33% { transform: scale(1); }
+  66.66% { transform: scale(1); }
+}
+
+@keyframes breatheText {
+  0%, 5% { content: "Breathe in..."; }
+  33.33%, 38% { content: "Hold..."; }
+  66.66%, 71% { content: "Breathe out..."; }
+}
+
+.breathing-circle {
+  animation: breathe 12s ease-in-out infinite;
+}
+
+.breathing-text::after {
+  content: "Breathe in...";
+  animation: breatheText 12s ease-in-out infinite;
+}
+
 /* Selection */
 ::selection {
   background: rgba(111, 78, 55, 0.12);
