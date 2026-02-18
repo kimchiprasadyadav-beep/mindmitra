@@ -1,22 +1,29 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import NavBar from '@/components/NavBar';
-import Disclaimer from '@/components/Disclaimer';
+import type { Metadata } from "next";
+import { Playfair_Display, Inter } from "next/font/google";
+import "./globals.css";
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: 'MindMitra — Your AI Wellness Companion',
-  description: 'A warm, empathetic AI therapy companion for mood tracking, journaling, and CBT-based conversations.',
+  title: "Lorelai ☕ — Your late-night coffee chat, anytime.",
+  description: "Grab a coffee. Let's talk. A warm, witty AI companion for when you need someone who gets it.",
+  icons: { icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head><link rel="manifest" href="/manifest.json" /></head>
-      <body className="min-h-screen pb-20">
-        <main className="max-w-lg mx-auto px-4">{children}</main>
-        <div className="max-w-lg mx-auto"><Disclaimer /></div>
-        <NavBar />
-      </body>
+    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
