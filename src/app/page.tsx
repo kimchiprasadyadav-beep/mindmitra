@@ -295,6 +295,7 @@ export default function Home() {
             {conversations.length === 0 ? (
               <p className="text-warm-brown/30 text-center mt-16 text-sm">No conversations yet.<br />Start one below.</p>
             ) : (
+              <>
               <div className="space-y-1">
                 {conversations.map((c) => (
                   <div
@@ -328,14 +329,15 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              {conversations.length > 1 && (
+              {conversations.length >= 2 && (
                 <button
-                  onClick={() => { if (confirm("Delete all conversations? This can't be undone.")) deleteAllConversations(); }}
+                  onClick={() => { if (confirm("Delete all conversations? This can\u0027t be undone.")) deleteAllConversations(); }}
                   className="mt-4 text-red-300 hover:text-red-400 text-xs transition-colors"
                 >
                   Delete all conversations
                 </button>
               )}
+              </>
             )}
             <button onClick={handleSignOut} className="mt-8 text-warm-brown/25 hover:text-warm-brown/50 text-xs transition-colors">
               Sign out
