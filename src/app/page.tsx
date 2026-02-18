@@ -35,6 +35,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isTemporary, setIsTemporary] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -124,8 +126,10 @@ export default function Home() {
     setIsStreaming(true);
 
     let convoId = currentConvoId;
-    if (!convoId) convoId = await createNewConversation(text.trim());
-    if (convoId) await saveMessage(convoId, "user", text.trim());
+    if (!isTemporary) {
+      if (!convoId) convoId = await createNewConversation(text.trim());
+      if (convoId) await saveMessage(convoId, "user", text.trim());
+    }
 
     try {
       const res = await fetch("/api/chat", {
@@ -144,16 +148,16 @@ export default function Home() {
           setMessages([...newMessages, { role: "assistant", content: assistantText }]);
         }
       }
-      if (convoId && assistantText) await saveMessage(convoId, "assistant", assistantText);
+      if (!isTemporary && convoId && assistantText) await saveMessage(convoId, "assistant", assistantText);
       if (assistantText) playVoice(assistantText);
     } catch {
       const errMsg = "I'm having a moment — can you try again? 💛";
       setMessages([...newMessages, { role: "assistant", content: errMsg }]);
-      if (convoId) await saveMessage(convoId, "assistant", errMsg);
+      if (!isTemporary && convoId) await saveMessage(convoId, "assistant", errMsg);
     }
     setIsStreaming(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, isStreaming, userName, currentConvoId, userId]);
+  }, [messages, isStreaming, userName, currentConvoId, userId, isTemporary]);
 
   const toggleRecording = useCallback(() => {
     if (recording) {
@@ -184,7 +188,32 @@ export default function Home() {
     setRecording(true);
   }, [recording, transcript, sendMessage]);
 
-  const newChat = () => { setMessages([]); setCurrentConvoId(null); };
+  const newChat = (temp?: boolean) => {
+    setMessages([]);
+    setCurrentConvoId(null);
+    if (temp !== undefined) setIsTemporary(temp);
+  };
+
+  const deleteConversation = async (convoId: string) => {
+    setDeletingId(convoId);
+    await supabase.from("messages").delete().eq("conversation_id", convoId);
+    await supabase.from("conversations").delete().eq("id", convoId);
+    setConversations((prev) => prev.filter((c) => c.id !== convoId));
+    if (currentConvoId === convoId) { setMessages([]); setCurrentConvoId(null); }
+    setDeletingId(null);
+  };
+
+  const deleteAllConversations = async () => {
+    if (!userId) return;
+    const ids = conversations.map((c) => c.id);
+    for (const id of ids) {
+      await supabase.from("messages").delete().eq("conversation_id", id);
+    }
+    await supabase.from("conversations").delete().eq("user_id", userId);
+    setConversations([]);
+    setMessages([]);
+    setCurrentConvoId(null);
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -224,16 +253,35 @@ export default function Home() {
           Lorelai
         </h1>
 
-        <button
-          onClick={newChat}
-          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-warm-brown/5 transition-colors"
-          title="New conversation"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-warm-brown/40">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          {isTemporary && (
+            <span className="text-[10px] text-warm-brown/30 mr-1">temp</span>
+          )}
+          <button
+            onClick={() => newChat(false)}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-warm-brown/5 transition-colors"
+            title="New conversation"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-warm-brown/40">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => newChat(true)}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+              isTemporary ? "bg-warm-brown/10 text-warm-brown/60" : "hover:bg-warm-brown/5 text-warm-brown/30"
+            }`}
+            title="Temporary chat (not saved)"
+          >
+
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+              <circle cx="12" cy="12" r="3" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* History Panel */}
@@ -249,18 +297,45 @@ export default function Home() {
             ) : (
               <div className="space-y-1">
                 {conversations.map((c) => (
-                  <button
+                  <div
                     key={c.id}
-                    onClick={() => loadConversationMessages(c.id)}
-                    className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${
+                    className={`flex items-center rounded-xl transition-colors ${
                       currentConvoId === c.id ? "bg-warm-brown/8" : "hover:bg-warm-brown/4"
                     }`}
                   >
-                    <p className="text-warm-brown/70 text-sm truncate">{c.title}</p>
-                    <p className="text-warm-brown/30 text-xs mt-0.5">{new Date(c.created_at).toLocaleDateString()}</p>
-                  </button>
+                    <button
+                      onClick={() => loadConversationMessages(c.id)}
+                      className="flex-1 text-left px-4 py-3"
+                    >
+                      <p className="text-warm-brown/70 text-sm truncate">{c.title}</p>
+                      <p className="text-warm-brown/30 text-xs mt-0.5">{new Date(c.created_at).toLocaleDateString()}</p>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
+                      disabled={deletingId === c.id}
+                      className="w-8 h-8 mr-2 rounded-full flex items-center justify-center text-warm-brown/20 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0"
+                      title="Delete"
+                    >
+                      {deletingId === c.id ? (
+                        <span className="text-xs">...</span>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 ))}
               </div>
+              {conversations.length > 1 && (
+                <button
+                  onClick={() => { if (confirm("Delete all conversations? This can't be undone.")) deleteAllConversations(); }}
+                  className="mt-4 text-red-300 hover:text-red-400 text-xs transition-colors"
+                >
+                  Delete all conversations
+                </button>
+              )}
             )}
             <button onClick={handleSignOut} className="mt-8 text-warm-brown/25 hover:text-warm-brown/50 text-xs transition-colors">
               Sign out
