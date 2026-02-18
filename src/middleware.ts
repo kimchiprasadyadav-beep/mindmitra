@@ -30,10 +30,10 @@ export async function middleware(request: NextRequest) {
   // If not logged in and trying to access protected routes, redirect to auth
   // Allow anonymous mode (check for cookie) and privacy page
   const isAnonymous = request.cookies.get('lorelai-anonymous')?.value === 'true'
-  const isPublicPath = request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname.startsWith('/privacy')
+  const isPublicPath = request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname.startsWith('/privacy') || request.nextUrl.pathname.startsWith('/landing')
   if (!user && !isAnonymous && !isPublicPath) {
     const url = request.nextUrl.clone()
-    url.pathname = '/auth'
+    url.pathname = '/landing'
     return NextResponse.redirect(url)
   }
 
