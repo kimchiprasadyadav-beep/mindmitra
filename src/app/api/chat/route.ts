@@ -40,18 +40,19 @@ export async function POST(req: Request) {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const { messages, userName } = await req.json();
 
-    const stream = await client.messages.stream({
+    const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 400,
       system: SYSTEM_PROMPT(userName),
       messages,
+      stream: true,
     });
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const event of stream) {
-          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        for await (const event of response) {
+          if (event.type === "content_block_delta" && "text" in event.delta) {
             controller.enqueue(encoder.encode(event.delta.text));
           }
         }
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
     });
 
     return new Response(readable, {
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Transfer-Encoding": "chunked" },
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (error: unknown) {
     console.error("Chat API error:", error);
