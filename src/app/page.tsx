@@ -479,12 +479,20 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setShowBreathing(true)}
-              className="px-4 py-2 rounded-full border border-warm-brown/8 text-warm-brown/30 text-xs hover:bg-warm-brown/5 hover:text-warm-brown/50 transition-all"
-            >
-              🫁 Breathing exercise
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowBreathing(true)}
+                className="px-4 py-2 rounded-full border border-warm-brown/8 text-warm-brown/30 text-xs hover:bg-warm-brown/5 hover:text-warm-brown/50 transition-all"
+              >
+                🫁 Breathing exercise
+              </button>
+              <button
+                onClick={() => router.push("/couples")}
+                className="px-4 py-2 rounded-full border border-warm-brown/8 text-warm-brown/30 text-xs hover:bg-warm-brown/5 hover:text-warm-brown/50 transition-all"
+              >
+                💕 Couples session
+              </button>
+            </div>
           </div>
         )}
 
