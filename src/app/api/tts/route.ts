@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel - warm, conversational
+const VOICE_ID = "XcWoPxj7pwnIgM3dQnWv"; // Kanika - cozy, soothing Indian female, late-night storytelling
 const MODEL_ID = "eleven_turbo_v2_5";
 
 export async function POST(req: Request) {
