@@ -120,7 +120,8 @@ export async function POST(req: Request) {
     }
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const { messages, userName, mood, pastSessions } = await req.json();
+    const { messages: rawMessages, userName, mood, pastSessions, privacyMode } = await req.json();
+    const messages = privacyMode ? rawMessages.slice(-6) : rawMessages;
 
     // Crisis detection on latest user message
     const lastUserMsg = [...messages].reverse().find((m: { role: string; content: string }) => m.role === "user");
@@ -128,7 +129,11 @@ export async function POST(req: Request) {
       lastUserMsg.content.toLowerCase().includes(kw)
     );
 
-    let systemPrompt = SYSTEM_PROMPT(userName, mood, pastSessions);
+    let systemPrompt = SYSTEM_PROMPT(
+      userName,
+      privacyMode ? undefined : mood,
+      privacyMode ? undefined : pastSessions
+    );
     if (isCrisis) {
       systemPrompt = CRISIS_ALERT + "\n\n" + systemPrompt;
     }

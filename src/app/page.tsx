@@ -41,6 +41,7 @@ export default function Home() {
 
   const [userName, setUserName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -49,6 +50,7 @@ export default function Home() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConvoId, setCurrentConvoId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -58,6 +60,9 @@ export default function Home() {
   const [showMoodCheckin, setShowMoodCheckin] = useState(true);
   const [showBreathing, setShowBreathing] = useState(false);
   const [showCrisisBanner, setShowCrisisBanner] = useState(false);
+  const [autoDelete, setAutoDelete] = useState<string>("off");
+  const [privacyMode, setPrivacyMode] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -96,14 +101,46 @@ export default function Home() {
 
   // Init
   useEffect(() => {
+    // Load settings from localStorage
+    const savedAutoDelete = localStorage.getItem("lorelai-auto-delete") || "off";
+    setAutoDelete(savedAutoDelete);
+    const savedPrivacyMode = localStorage.getItem("lorelai-privacy-mode") === "true";
+    setPrivacyMode(savedPrivacyMode);
+
     const init = async () => {
+      // Check anonymous mode
+      const anonFlag = localStorage.getItem("lorelai-anonymous");
+      if (anonFlag === "true") {
+        setIsAnonymous(true);
+        setIsTemporary(true);
+        setUserName("friend");
+        setLoading(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/auth"); return; }
       setUserId(user.id);
       const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).single();
       setUserName(profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "friend");
       const { data: convos } = await supabase.from("conversations").select("*").order("updated_at", { ascending: false });
-      if (convos) setConversations(convos);
+      if (convos) {
+        // Auto-delete expired conversations
+        if (savedAutoDelete !== "off" && convos.length > 0) {
+          const days = savedAutoDelete === "7days" ? 7 : 30;
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - days);
+          const expired = convos.filter((c: Conversation) => new Date(c.created_at) < cutoff);
+          for (const c of expired) {
+            await supabase.from("messages").delete().eq("conversation_id", c.id);
+            await supabase.from("conversations").delete().eq("id", c.id);
+          }
+          const remaining = convos.filter((c: Conversation) => new Date(c.created_at) >= cutoff);
+          setConversations(remaining);
+        } else {
+          setConversations(convos);
+        }
+      }
       setLoading(false);
     };
     init();
@@ -147,17 +184,24 @@ export default function Home() {
     setIsStreaming(true);
 
     let convoId = currentConvoId;
-    if (!isTemporary) {
+    if (!isTemporary && !isAnonymous) {
       if (!convoId) convoId = await createNewConversation(text.trim());
       if (convoId) await saveMessage(convoId, "user", text.trim());
     }
 
     try {
-      const pastSessions = conversations.slice(0, 5).map((c) => c.title);
+      const pastSessions = privacyMode ? [] : conversations.slice(0, 5).map((c) => c.title);
+      const messagesToSend = privacyMode ? newMessages.slice(-6) : newMessages;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, userName, mood: selectedMood, pastSessions }),
+        body: JSON.stringify({
+          messages: messagesToSend,
+          userName,
+          mood: privacyMode ? undefined : selectedMood,
+          pastSessions,
+          privacyMode,
+        }),
       });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -170,7 +214,7 @@ export default function Home() {
           setMessages([...newMessages, { role: "assistant", content: assistantText }]);
         }
       }
-      if (!isTemporary && convoId && assistantText) await saveMessage(convoId, "assistant", assistantText);
+      if (!isTemporary && !isAnonymous && convoId && assistantText) await saveMessage(convoId, "assistant", assistantText);
       // Check if response contains helpline numbers (crisis detection)
       if (assistantText && (assistantText.includes("9152987821") || assistantText.includes("1860-2662-345") || assistantText.includes("9820466726"))) {
         setShowCrisisBanner(true);
@@ -179,11 +223,11 @@ export default function Home() {
     } catch {
       const errMsg = "I'm having a moment — can you try again? 💛";
       setMessages([...newMessages, { role: "assistant", content: errMsg }]);
-      if (!isTemporary && convoId) await saveMessage(convoId, "assistant", errMsg);
+      if (!isTemporary && !isAnonymous && convoId) await saveMessage(convoId, "assistant", errMsg);
     }
     setIsStreaming(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, isStreaming, userName, currentConvoId, userId, isTemporary, selectedMood, conversations]);
+  }, [messages, isStreaming, userName, currentConvoId, userId, isTemporary, isAnonymous, selectedMood, conversations, privacyMode]);
 
   const toggleRecording = useCallback(() => {
     if (recording) {
@@ -245,9 +289,27 @@ export default function Home() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem("lorelai-anonymous");
+    if (!isAnonymous) await supabase.auth.signOut();
     router.push("/auth");
     router.refresh();
+  };
+
+  const handleDeleteAllData = async () => {
+    if (!userId || isAnonymous) return;
+    if (!confirm("Delete ALL your data? This removes all conversations, messages, and your profile. This can't be undone.")) return;
+    setDeletingAll(true);
+    const ids = conversations.map((c) => c.id);
+    for (const id of ids) {
+      await supabase.from("messages").delete().eq("conversation_id", id);
+    }
+    await supabase.from("conversations").delete().eq("user_id", userId);
+    await supabase.from("profiles").delete().eq("id", userId);
+    setConversations([]);
+    setMessages([]);
+    setCurrentConvoId(null);
+    setDeletingAll(false);
+    setShowSettings(false);
   };
 
   if (loading) {
@@ -283,6 +345,16 @@ export default function Home() {
         </h1>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-warm-brown/5 transition-colors text-warm-brown/40"
+            title="Settings"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
           <button
             onClick={() => setShowBreathing(true)}
             className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-warm-brown/5 transition-colors text-warm-brown/40"
@@ -421,6 +493,115 @@ export default function Home() {
         </div>
       )}
 
+      {/* Anonymous Banner */}
+      {isAnonymous && (
+        <div className="bg-warm-brown/5 border-b border-warm-brown/8 px-4 py-2 text-center">
+          <p className="text-warm-brown/50 text-xs">🔒 Anonymous mode — nothing is saved</p>
+        </div>
+      )}
+
+      {/* Privacy Mode Indicator */}
+      {privacyMode && !isAnonymous && (
+        <div className="bg-warm-brown/5 border-b border-warm-brown/8 px-4 py-2 text-center">
+          <p className="text-warm-brown/50 text-xs">🔒 Privacy mode — sending less context to AI</p>
+        </div>
+      )}
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <div className="absolute top-[57px] left-0 right-0 bottom-0 bg-cream/98 backdrop-blur-md z-20 animate-fade-in">
+          <div className="p-5 max-w-lg mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-[family-name:var(--font-playfair)] text-lg text-warm-brown">Settings</h2>
+              <button onClick={() => setShowSettings(false)} className="text-warm-brown/40 hover:text-warm-brown text-sm">✕</button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Privacy Mode */}
+              <div>
+                <h3 className="text-warm-brown/70 text-sm font-medium mb-3">Privacy</h3>
+                <label className="flex items-center justify-between p-3 rounded-xl bg-white border border-warm-brown/8 cursor-pointer">
+                  <div>
+                    <p className="text-warm-brown/70 text-sm">Privacy mode — send less context to AI</p>
+                    <p className="text-warm-brown/30 text-xs mt-0.5">Only last 3 messages sent, no mood or session history</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={privacyMode}
+                    onChange={(e) => {
+                      setPrivacyMode(e.target.checked);
+                      localStorage.setItem("lorelai-privacy-mode", String(e.target.checked));
+                    }}
+                    className="w-4 h-4 accent-warm-brown"
+                  />
+                </label>
+              </div>
+
+              {/* Auto-Delete */}
+              {!isAnonymous && (
+                <div>
+                  <h3 className="text-warm-brown/70 text-sm font-medium mb-3">Auto-delete conversations</h3>
+                  <div className="space-y-2">
+                    {[
+                      { value: "off", label: "Never" },
+                      { value: "30days", label: "After 30 days" },
+                      { value: "7days", label: "After 7 days" },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          autoDelete === opt.value
+                            ? "bg-warm-brown/5 border-warm-brown/20"
+                            : "bg-white border-warm-brown/8 hover:border-warm-brown/12"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="autoDelete"
+                          value={opt.value}
+                          checked={autoDelete === opt.value}
+                          onChange={(e) => {
+                            setAutoDelete(e.target.value);
+                            localStorage.setItem("lorelai-auto-delete", e.target.value);
+                          }}
+                          className="accent-warm-brown"
+                        />
+                        <span className="text-warm-brown/70 text-sm">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Delete All Data */}
+              {!isAnonymous && userId && (
+                <div>
+                  <h3 className="text-warm-brown/70 text-sm font-medium mb-3">Danger zone</h3>
+                  <button
+                    onClick={handleDeleteAllData}
+                    disabled={deletingAll}
+                    className="w-full px-4 py-3 rounded-xl border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors text-sm disabled:opacity-50"
+                  >
+                    {deletingAll ? "Deleting..." : "🗑️ Delete all my data"}
+                  </button>
+                  <p className="text-warm-brown/25 text-xs mt-1.5">Removes all conversations, messages, and profile data</p>
+                </div>
+              )}
+
+              {/* Links */}
+              <div className="pt-2 space-y-2">
+                <a href="/privacy" className="block text-warm-brown/40 hover:text-warm-brown/60 text-sm transition-colors">
+                  Privacy Policy →
+                </a>
+                <button onClick={handleSignOut} className="text-warm-brown/25 hover:text-warm-brown/50 text-xs transition-colors">
+                  {isAnonymous ? "Exit anonymous mode" : "Sign out"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chat Area */}
       <div ref={chatRef} className="flex-1 overflow-y-auto">
         {/* Mood Check-in (before empty state) */}
@@ -489,12 +670,14 @@ export default function Home() {
               >
                 🫁 Breathing exercise
               </button>
-              <button
-                onClick={() => router.push("/couples")}
-                className="px-4 py-2 rounded-full border border-warm-brown/8 text-warm-brown/30 text-xs hover:bg-warm-brown/5 hover:text-warm-brown/50 transition-all"
-              >
-                💕 Couples session
-              </button>
+              {!isAnonymous && (
+                <button
+                  onClick={() => router.push("/couples")}
+                  className="px-4 py-2 rounded-full border border-warm-brown/8 text-warm-brown/30 text-xs hover:bg-warm-brown/5 hover:text-warm-brown/50 transition-all"
+                >
+                  💕 Couples session
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -647,7 +830,7 @@ export default function Home() {
           </div>
 
           <p className="text-center text-[10px] text-warm-brown/20 mt-2.5 tracking-wide">
-            Not a replacement for professional therapy
+            Not a replacement for professional therapy · <a href="/privacy" className="underline hover:text-warm-brown/30">Privacy</a>
           </p>
         </div>
       </div>

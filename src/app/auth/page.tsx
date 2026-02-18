@@ -169,6 +169,29 @@ export default function AuthPage() {
             ? "Already have an account? Sign in"
             : "New here? Create an account"}
         </button>
+
+        {/* Anonymous Mode */}
+        <div className="mt-6 pt-6 border-t border-warm-brown/8">
+          <button
+            onClick={() => {
+              localStorage.setItem("lorelai-anonymous", "true");
+              router.push("/");
+            }}
+            className="w-full px-6 py-3 bg-warm-brown/5 text-warm-brown/60 rounded-full hover:bg-warm-brown/10 hover:text-warm-brown transition-colors text-sm font-medium"
+          >
+            🔒 Continue without signing in
+          </button>
+          <p className="text-warm-brown/30 text-xs mt-2">
+            Nothing saved. Fully private. Just close the tab when done.
+          </p>
+        </div>
+
+        {/* Privacy link */}
+        <div className="mt-6">
+          <a href="/privacy" className="text-warm-brown/30 hover:text-warm-brown/50 text-xs transition-colors">
+            Privacy Policy
+          </a>
+        </div>
       </div>
     </div>
   );
