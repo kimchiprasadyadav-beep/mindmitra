@@ -35,206 +35,263 @@ function FadeIn({ children, className = '', delay = 0 }: { children: React.React
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-cream text-dark">
-      {/* Hero */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-cream via-cream to-sage/30" />
-        <div className="absolute top-20 right-10 text-8xl opacity-10 animate-float select-none">☕</div>
-        <div className="absolute bottom-32 left-8 text-6xl opacity-[0.07] animate-float-slow select-none">☕</div>
+
+      {/* ─── 1. HERO ─── */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-hidden">
+        {/* Decorative warm glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-radial from-warm-brown/[0.06] via-warm-brown/[0.02] to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-gradient-radial from-sage/40 to-transparent blur-2xl pointer-events-none" />
+
         <div className="relative z-10 max-w-2xl mx-auto">
-          <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl md:text-6xl font-bold text-warm-brown-dark leading-tight mb-6">
+          <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-warm-brown-dark leading-[1.1] mb-6">
             The friend who&apos;s always there at 2am
           </h1>
-          <p className="text-lg sm:text-xl text-warm-brown-light mb-10 max-w-lg mx-auto leading-relaxed">
-            AI-powered therapy companion. Free. Private. In your language.
+          <p className="text-lg sm:text-xl text-warm-brown-light mb-10 max-w-md mx-auto leading-relaxed">
+            Free AI therapy companion. Private. In your language.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
             <Link
               href="/"
               onClick={() => {
                 document.cookie = 'lorelai-anonymous=true;path=/;max-age=86400'
               }}
-              className="px-8 py-4 bg-warm-brown text-white rounded-2xl text-lg font-medium hover:bg-warm-brown-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+              className="px-8 py-4 bg-warm-brown text-white rounded-full text-lg font-medium hover:bg-warm-brown-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             >
-              Start talking — no sign up needed
+              Start talking — free
             </Link>
             <Link
               href="/auth"
-              className="px-8 py-4 border-2 border-warm-brown text-warm-brown rounded-2xl text-lg font-medium hover:bg-warm-brown hover:text-white transition-all duration-300"
+              className="px-8 py-4 border border-warm-brown/20 text-warm-brown rounded-full text-lg font-medium hover:bg-warm-brown/5 transition-all duration-300"
             >
               Sign in
             </Link>
           </div>
+          <p className="text-warm-brown/40 text-sm">No download. No sign-up. Just start.</p>
         </div>
       </section>
 
-      {/* Social Proof */}
-      <section className="py-8 bg-warm-brown/5 border-y border-warm-brown/10">
-        <div className="max-w-4xl mx-auto px-6 flex flex-wrap justify-center gap-6 sm:gap-10 text-warm-brown font-medium text-sm sm:text-base">
-          <span>10,000+ conversations held</span>
-          <span className="hidden sm:inline text-warm-brown/30">·</span>
-          <span>15 Indian languages</span>
-          <span className="hidden sm:inline text-warm-brown/30">·</span>
-          <span>100% free</span>
+      {/* ─── 2. SOCIAL PROOF ─── */}
+      <section className="border-y border-warm-brown/10 py-6 px-6">
+        <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-6 sm:gap-8 text-warm-brown/40 text-sm">
+          <span>💬 10,000+ conversations</span>
+          <span>🌐 15 languages</span>
+          <span>🆓 100% free</span>
+          <span>👻 Anonymous mode</span>
         </div>
       </section>
 
-      {/* Features */}
+      {/* ─── 3. FEATURES ─── */}
       <section className="py-20 sm:py-28 px-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <FadeIn>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-center text-warm-brown-dark mb-16">
               Why people love Lorelai
             </h2>
           </FadeIn>
-          <div className="grid sm:grid-cols-3 gap-8">
-            {[
-              { emoji: '🎙️', title: 'Voice-first', desc: 'Talk, don\'t type. Lorelai listens and speaks back.' },
-              { emoji: '🔒', title: 'Truly private', desc: 'Anonymous mode. Auto-delete. We can\'t read your chats.' },
-              { emoji: '🌏', title: 'Your language', desc: 'Hindi, Tamil, Telugu, Bengali, Kannada + 10 more.' },
-            ].map((f, i) => (
-              <FadeIn key={f.title} delay={i * 150}>
-                <div className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300 text-center">
-                  <div className="text-5xl mb-5">{f.emoji}</div>
-                  <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-3">{f.title}</h3>
-                  <p className="text-warm-brown-light leading-relaxed">{f.desc}</p>
-                </div>
-              </FadeIn>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <FadeIn delay={0}>
+              <div className="bg-white rounded-3xl p-8 border border-warm-brown/[0.06]">
+                <div className="text-4xl mb-4">🎙️</div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-3">Voice-first</h3>
+                <p className="text-warm-brown-light leading-relaxed">Talk, don&apos;t type. Lorelai listens and speaks back in a warm voice.</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={150}>
+              <div className="bg-white rounded-3xl p-8 border border-warm-brown/[0.06]">
+                <div className="text-4xl mb-4">🔒</div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-3">Truly private</h3>
+                <p className="text-warm-brown-light leading-relaxed">Anonymous mode. Auto-delete. We literally can&apos;t read your chats.</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={300}>
+              <div className="bg-white rounded-3xl p-8 border border-warm-brown/[0.06]">
+                <div className="text-4xl mb-4">🌏</div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-3">Your language</h3>
+                <p className="text-warm-brown-light leading-relaxed">Hindi, Tamil, Telugu, Bengali, Kannada, Malayalam + 9 more Indian languages.</p>
+              </div>
+            </FadeIn>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 sm:py-28 px-6 bg-sage/40">
+      {/* ─── 4. CONVERSATION PREVIEW ─── */}
+      <section className="py-20 sm:py-28 px-6">
+        <FadeIn>
+          <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-center text-warm-brown-dark mb-12">
+            A conversation with Lorelai
+          </h2>
+        </FadeIn>
+        <FadeIn delay={200}>
+          <div className="max-w-sm mx-auto space-y-4">
+            {/* User message */}
+            <div className="flex justify-end">
+              <div className="bg-sage rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
+                <p className="text-sage-dark text-sm leading-relaxed">I&apos;ve been feeling really anxious about work lately</p>
+              </div>
+            </div>
+            {/* Lorelai message */}
+            <div className="flex justify-start gap-2">
+              <div className="w-8 h-8 rounded-full bg-warm-brown/10 flex items-center justify-center text-sm shrink-0 mt-1">☕</div>
+              <div className="bg-white rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] border border-warm-brown/[0.06]">
+                <p className="text-warm-brown-dark text-sm leading-relaxed">That sounds heavy. What specifically about work is weighing on you right now?</p>
+              </div>
+            </div>
+            {/* User message */}
+            <div className="flex justify-end">
+              <div className="bg-sage rounded-2xl rounded-br-md px-4 py-3 max-w-[80%]">
+                <p className="text-sage-dark text-sm leading-relaxed">I guess I&apos;m scared of failing and everyone finding out</p>
+              </div>
+            </div>
+            {/* Lorelai message */}
+            <div className="flex justify-start gap-2">
+              <div className="w-8 h-8 rounded-full bg-warm-brown/10 flex items-center justify-center text-sm shrink-0 mt-1">☕</div>
+              <div className="bg-white rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%] border border-warm-brown/[0.06]">
+                <p className="text-warm-brown-dark text-sm leading-relaxed">That fear of being &lsquo;found out&rsquo; — so many people carry that. It&apos;s called imposter syndrome, and it says nothing about your actual abilities. What would it feel like to let that fear be there without believing it?</p>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* ─── 5. HOW IT WORKS ─── */}
+      <section className="py-20 sm:py-28 px-6">
         <div className="max-w-4xl mx-auto">
           <FadeIn>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-center text-warm-brown-dark mb-16">
               How it works
             </h2>
           </FadeIn>
-          <div className="grid sm:grid-cols-3 gap-10">
-            {[
-              { step: '1', title: 'Open Lorelai', desc: 'No download needed. Works in your browser.' },
-              { step: '2', title: 'Talk about what\'s on your mind', desc: 'Voice or text. Whatever feels right.' },
-              { step: '3', title: 'Feel heard', desc: 'Come back whenever you need.' },
-            ].map((s, i) => (
-              <FadeIn key={s.step} delay={i * 150}>
-                <div className="text-center">
-                  <div className="w-14 h-14 rounded-full bg-warm-brown text-white flex items-center justify-center text-xl font-bold mx-auto mb-5">
-                    {s.step}
-                  </div>
-                  <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-2">{s.title}</h3>
-                  <p className="text-warm-brown-light">{s.desc}</p>
-                </div>
-              </FadeIn>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <FadeIn delay={0}>
+              <div className="text-center">
+                <div className="text-6xl font-bold text-warm-brown/10 mb-3 font-[family-name:var(--font-playfair)]">1</div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-2">Open Lorelai</h3>
+                <p className="text-warm-brown-light leading-relaxed">No download needed. Works on any phone or laptop.</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={150}>
+              <div className="text-center">
+                <div className="text-6xl font-bold text-warm-brown/10 mb-3 font-[family-name:var(--font-playfair)]">2</div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-2">Talk about what&apos;s on your mind</h3>
+                <p className="text-warm-brown-light leading-relaxed">Text or voice, in any language.</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={300}>
+              <div className="text-center">
+                <div className="text-6xl font-bold text-warm-brown/10 mb-3 font-[family-name:var(--font-playfair)]">3</div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-warm-brown-dark mb-2">Feel heard</h3>
+                <p className="text-warm-brown-light leading-relaxed">Come back whenever. Lorelai remembers.</p>
+              </div>
+            </FadeIn>
           </div>
         </div>
       </section>
 
-      {/* Couples Mode */}
-      <section className="py-20 sm:py-28 px-6">
+      {/* ─── 6. COUPLES MODE ─── */}
+      <section className="bg-sage py-20 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <FadeIn>
-            <div className="text-5xl mb-6">💑</div>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-warm-brown-dark mb-4">
-              Struggling together? Try Couples Mode
+              Struggling together?
             </h2>
-            <p className="text-warm-brown-light text-lg mb-8 max-w-lg mx-auto">
-              Share a code, both join, Lorelai mediates. Real-time.
+            <p className="text-warm-brown-light text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+              Try Couples Mode — share a code, both join the same session. Lorelai mediates in real-time. Validates both sides. Never takes one.
             </p>
             <Link
               href="/couples"
-              className="inline-block px-8 py-4 bg-warm-brown text-white rounded-2xl text-lg font-medium hover:bg-warm-brown-dark transition-all duration-300 shadow-lg hover:shadow-xl"
+              className="inline-block px-8 py-4 bg-warm-brown text-white rounded-full text-lg font-medium hover:bg-warm-brown-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             >
-              Try Couples Mode
+              Try couples mode →
             </Link>
           </FadeIn>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-20 sm:py-28 px-6 bg-warm-brown/5">
-        <div className="max-w-5xl mx-auto">
+      {/* ─── 7. TESTIMONIALS ─── */}
+      <section className="py-20 sm:py-28 px-6">
+        <div className="max-w-4xl mx-auto">
           <FadeIn>
             <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-center text-warm-brown-dark mb-16">
               What people say
             </h2>
           </FadeIn>
-          <div className="grid sm:grid-cols-3 gap-8">
-            {[
-              'I couldn\'t afford therapy. Lorelai helped me through my worst week.',
-              'Finally an app that speaks Hindi and actually understands.',
-              'The couples mode saved a fight that was about to ruin our weekend.',
-            ].map((q, i) => (
-              <FadeIn key={i} delay={i * 150}>
-                <div className="bg-white rounded-3xl p-8 shadow-sm">
-                  <p className="text-warm-brown-light leading-relaxed italic text-lg">&ldquo;{q}&rdquo;</p>
-                  <p className="mt-4 text-warm-brown/50 text-sm">— Anonymous</p>
-                </div>
-              </FadeIn>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <FadeIn delay={0}>
+              <div className="bg-white rounded-2xl p-6 border border-warm-brown/[0.06]">
+                <p className="text-warm-brown-light leading-relaxed italic mb-4">&ldquo;I couldn&apos;t afford ₹2,700/session therapy. Lorelai helped me through my worst week.&rdquo;</p>
+                <p className="text-warm-brown/50 text-sm">— A., 24, Mumbai</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={150}>
+              <div className="bg-white rounded-2xl p-6 border border-warm-brown/[0.06]">
+                <p className="text-warm-brown-light leading-relaxed italic mb-4">&ldquo;Finally an app that speaks Hindi and actually understands how I feel.&rdquo;</p>
+                <p className="text-warm-brown/50 text-sm">— S., 19, Delhi</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={300}>
+              <div className="bg-white rounded-2xl p-6 border border-warm-brown/[0.06]">
+                <p className="text-warm-brown-light leading-relaxed italic mb-4">&ldquo;The couples mode saved a fight that was about to ruin our weekend.&rdquo;</p>
+                <p className="text-warm-brown/50 text-sm">— R. &amp; M., Bangalore</p>
+              </div>
+            </FadeIn>
           </div>
         </div>
       </section>
 
-      {/* Privacy */}
+      {/* ─── 8. PRIVACY ─── */}
       <section className="py-20 sm:py-28 px-6">
-        <div className="max-w-3xl mx-auto text-center">
+        <div className="max-w-lg mx-auto text-center">
           <FadeIn>
-            <div className="text-5xl mb-6">🛡️</div>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-warm-brown-dark mb-6">
+            <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-warm-brown-dark mb-8">
               Your safe space. For real.
             </h2>
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
-              {['No sign-up required', 'Auto-delete', 'Anonymous mode', 'Privacy policy'].map((item) => (
-                <span key={item} className="px-4 py-2 bg-sage rounded-full text-sage-dark text-sm font-medium">
-                  {item}
-                </span>
-              ))}
+            <div className="space-y-3 text-warm-brown-light text-lg mb-8">
+              <p>✓ No sign-up required</p>
+              <p>✓ Conversations auto-delete</p>
+              <p>✓ Full anonymous mode</p>
+              <p>
+                ✓{' '}
+                <Link href="/privacy" className="underline underline-offset-4 hover:text-warm-brown-dark transition-colors">
+                  Read our privacy policy
+                </Link>
+              </p>
             </div>
-            <Link href="/privacy" className="text-warm-brown underline underline-offset-4 hover:text-warm-brown-dark transition-colors">
-              Read our privacy policy →
-            </Link>
           </FadeIn>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-24 sm:py-32 px-6 bg-gradient-to-b from-cream to-sage/30">
-        <div className="max-w-3xl mx-auto text-center">
-          <FadeIn>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-5xl font-bold text-warm-brown-dark mb-8">
-              Ready to feel heard?
-            </h2>
-            <Link
-              href="/"
-              onClick={() => {
-                document.cookie = 'lorelai-anonymous=true;path=/;max-age=86400'
-              }}
-              className="inline-block px-10 py-5 bg-warm-brown text-white rounded-2xl text-xl font-medium hover:bg-warm-brown-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-            >
-              Start now — it&apos;s free
-            </Link>
-          </FadeIn>
-        </div>
+      {/* ─── 9. FINAL CTA ─── */}
+      <section className="py-24 px-6 text-center">
+        <FadeIn>
+          <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-5xl font-bold text-warm-brown-dark mb-8">
+            Ready to feel heard?
+          </h2>
+          <Link
+            href="/"
+            onClick={() => {
+              document.cookie = 'lorelai-anonymous=true;path=/;max-age=86400'
+            }}
+            className="inline-block px-10 py-5 bg-warm-brown text-white rounded-full text-xl font-medium hover:bg-warm-brown-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 mb-4"
+          >
+            Start now — it&apos;s free ☕
+          </Link>
+          <p className="text-warm-brown/40 text-sm">No credit card. No judgment. Just you.</p>
+        </FadeIn>
       </section>
 
-      {/* Footer */}
-      <footer className="py-10 px-6 border-t border-warm-brown/10">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-warm-brown/60 mb-4">Made with ☕ in India</p>
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-warm-brown/50">
-            <Link href="/privacy" className="hover:text-warm-brown transition-colors">Privacy</Link>
-            <span>·</span>
-            <a href="https://icallhelpline.org" target="_blank" rel="noopener noreferrer" className="hover:text-warm-brown transition-colors">iCall</a>
-            <span>·</span>
-            <a href="https://vandrevalafoundation.com" target="_blank" rel="noopener noreferrer" className="hover:text-warm-brown transition-colors">Vandrevala Foundation</a>
-            <span>·</span>
-            <a href="http://www.aasra.info" target="_blank" rel="noopener noreferrer" className="hover:text-warm-brown transition-colors">AASRA</a>
-          </div>
-          <p className="mt-4 text-xs text-warm-brown/30">If you&apos;re in crisis, please reach out to a helpline above. Lorelai is not a replacement for professional help.</p>
+      {/* ─── 10. FOOTER ─── */}
+      <footer className="border-t border-warm-brown/10 py-8 px-6 text-center">
+        <p className="text-warm-brown/30 mb-3">Made with ☕ in India</p>
+        <div className="flex flex-wrap justify-center gap-3 text-sm text-warm-brown/30 mb-3">
+          <Link href="/privacy" className="hover:text-warm-brown/60 transition-colors">Privacy</Link>
+          <span>·</span>
+          <a href="tel:9152987821" className="hover:text-warm-brown/60 transition-colors">iCall: 9152987821</a>
+          <span>·</span>
+          <a href="tel:18602662345" className="hover:text-warm-brown/60 transition-colors">Vandrevala: 1860-2662-345</a>
+          <span>·</span>
+          <a href="tel:9820466726" className="hover:text-warm-brown/60 transition-colors">AASRA: 9820466726</a>
         </div>
+        <p className="text-warm-brown/20 text-xs">Lorelai is not a replacement for professional therapy.</p>
       </footer>
     </div>
   )
