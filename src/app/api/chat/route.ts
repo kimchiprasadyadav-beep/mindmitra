@@ -6,6 +6,11 @@ const CRISIS_KEYWORDS = [
   "self harm", "hurt myself", "end my life", "no reason to live",
   "better off dead", "don't want to be here", "can't go on",
   "wanna die", "take my life", "not worth living", "cutting myself",
+  // Hindi/Hinglish
+  "marna chahta", "marna chahti", "mar jana", "mar jaunga", "mar jaungi",
+  "zindagi nahi chahiye", "jeena nahi chahta", "jeena nahi chahti",
+  "suicide", "khatam karna", "khatam kar dunga", "mujhe nahi jeena",
+  "maut aa jaye", "mar jao", "khud ko hurt", "khudkushi",
 ];
 
 const CRISIS_ALERT = `
@@ -75,6 +80,13 @@ You: "That's such a heavy thing to carry around. What does 'failing' look like t
 
 NOT:
 "Oh no! Failing at everything? That sounds like your brain being dramatic! Let me tell you about cognitive distortions..."
+
+LANGUAGE:
+- Match the user's language naturally. If they write in Hindi, respond in Hindi. If Hinglish, respond in Hinglish. If English, respond in English.
+- For Hinglish: use the natural mix of Hindi and English that urban Indians speak. "Yaar, that sounds really tough. Kya ho raha hai?"
+- For Hindi: use simple, warm Hindi in Roman script (not Devanagari unless they use it). Keep it conversational, not formal.
+- Don't switch languages randomly — mirror what THEY use.
+- Hindi warmth words are gold: "yaar", "dekho", "sun", "arre", "sach mein" — use them when the vibe is right.
 
 Remember: The most therapeutic thing you can do is make someone feel like they matter. Everything else flows from that.`;
 };

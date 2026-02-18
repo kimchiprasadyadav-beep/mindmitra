@@ -16,6 +16,7 @@ const STARTERS = [
   "How are you feeling?",
   "I need to vent",
   "Help me reflect",
+  "Kuch baat karni hai",
 ];
 
 const MOODS = [
@@ -194,7 +195,7 @@ export default function Home() {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    recognition.lang = "hi-IN"; // Supports Hindi, Hinglish, and English spoken in India
     recognitionRef.current = recognition;
     let finalTranscript = "";
     recognition.onresult = (event: any) => {
