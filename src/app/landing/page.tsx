@@ -35,18 +35,15 @@ export default function LandingPage() {
 
   return (
     <div ref={pageRef} className="min-h-screen bg-[#FAF8F5] overflow-x-hidden">
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .reveal-section {
           opacity: 0;
           transform: translateY(30px);
           transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .reveal-section.revealed {
-          opacity: 1;
-          transform: translateY(0);
-        }
-        .reveal-section:nth-child(even) {
-          transition-delay: 0.1s;
+          opacity: 1 !important;
+          transform: translateY(0) !important;
         }
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
@@ -55,11 +52,6 @@ export default function LandingPage() {
         @keyframes pulse-glow {
           0%, 100% { opacity: 0.4; transform: scale(1); }
           50% { opacity: 0.7; transform: scale(1.05); }
-        }
-        @keyframes gradient-shift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
         }
         .phone-float { animation: float 6s ease-in-out infinite; }
         .glow-bg { animation: pulse-glow 4s ease-in-out infinite; }
@@ -70,7 +62,7 @@ export default function LandingPage() {
           transform: translateY(-4px);
           box-shadow: 0 20px 60px -15px rgba(111, 78, 55, 0.15);
         }
-      `}</style>
+      ` }} />
 
       {/* ===== HERO ===== */}
       <section className="relative min-h-screen flex items-center justify-center px-6">
